@@ -41,10 +41,17 @@ export function CreateRoom() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
+              {isLoading && (
+                <div className="flex items-center justify-center">
+                  <span className="text-muted-foreground text-sm">
+                    Carregando salas...
+                  </span>
+                </div>
+              )}
               {data?.map((room) => {
                 return (
                   <Link
-                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent"
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent/50"
                     key={room.id}
                     to={`/room/${room.id}`}
                   >
