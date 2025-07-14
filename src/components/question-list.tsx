@@ -1,12 +1,13 @@
 import { useRoomQuestions } from '@/http/use-room-questions'
 import { QuestionItem } from './question-item'
 
-type QuestionListProps = {
+interface QuestionListProps {
   roomId: string
 }
 
 export function QuestionList(props: QuestionListProps) {
   const { data } = useRoomQuestions(props.roomId)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -15,9 +16,9 @@ export function QuestionList(props: QuestionListProps) {
         </h2>
       </div>
 
-      {data?.map((question) => (
-        <QuestionItem key={question.id} question={question} />
-      ))}
+      {data?.map((question) => {
+        return <QuestionItem key={question.id} question={question} />
+      })}
     </div>
   )
 }

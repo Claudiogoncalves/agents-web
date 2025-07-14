@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noConsole: <explanation> */
 import { useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Navigate, useParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 
 const isRecordingSupported =
   !!navigator.mediaDevices &&
@@ -14,22 +14,26 @@ type RoomParams = {
 
 export function RecordRoomAudio() {
   const params = useParams<RoomParams>()
-
   const [isRecording, setIsRecording] = useState(false)
   const recorder = useRef<MediaRecorder | null>(null)
+  const intervalRef = useRef<NodeJS.Timeout>(null)
 
-  function onStopRecording() {
+  function stopRecording() {
     setIsRecording(false)
 
     if (recorder.current && recorder.current.state !== 'inactive') {
       recorder.current.stop()
     }
+
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
   }
 
-  async function uploadAudio(audioBlob: Blob) {
+  async function uploadAudio(audio: Blob) {
     const formData = new FormData()
 
-    formData.append('file', audioBlob, 'audio.webm')
+    formData.append('file', audio, 'audio.webm')
 
     const response = await fetch(
       `http://localhost:3333/rooms/${params.roomId}/audio`,
@@ -40,14 +44,43 @@ export function RecordRoomAudio() {
     )
 
     const result = await response.json()
-    console.log('Audio uploaded successfully:', result)
+
+    console.log(result)
   }
 
-  async function onStartRecording() {
+  function createRecorder(audio: MediaStream) {
+    recorder.current = new MediaRecorder(audio, {
+      mimeType: 'audio/webm',
+      audioBitsPerSecond: 64_000,
+    })
+
+    recorder.current.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        uploadAudio(event.data)
+        // const url = URL.createObjectURL(event.data)
+        // const audioElement = new Audio(url)
+        // audioElement.play()
+        // console.log('Gravação concluída', event.data)
+      }
+    }
+
+    recorder.current.onstart = () => {
+      console.log('Gravação iniciada!')
+    }
+
+    recorder.current.onstop = () => {
+      console.log('Gravação encerrada/pausada')
+    }
+
+    recorder.current.start()
+  }
+
+  async function startRecording() {
     if (!isRecordingSupported) {
-      alert('Gravação de áudio não é suportada neste navegador.')
+      alert('O seu navegador não suporta gravação')
       return
     }
+
     setIsRecording(true)
 
     const audio = await navigator.mediaDevices.getUserMedia({
@@ -58,31 +91,13 @@ export function RecordRoomAudio() {
       },
     })
 
-    recorder.current = new MediaRecorder(audio, {
-      mimeType: 'audio/webm',
-      audioBitsPerSecond: 64_000,
-    })
+    createRecorder(audio)
 
-    recorder.current.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        uploadAudio(event.data)
-        const url = URL.createObjectURL(event.data)
-        const audioElement = new Audio(url)
-        audioElement.play()
-        console.log('Gravação concluída', event.data)
-      }
-      setIsRecording(false)
-    }
+    intervalRef.current = setInterval(() => {
+      recorder.current?.stop()
 
-    recorder.current.onstart = () => {
-      console.log('Gravação iniciada')
-    }
-
-    recorder.current.onstop = () => {
-      console.log('Gravação parada')
-    }
-
-    recorder.current.start()
+      createRecorder(audio)
+    }, 5000)
   }
 
   if (!params.roomId) {
@@ -92,20 +107,11 @@ export function RecordRoomAudio() {
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-3">
       {isRecording ? (
-        <Button
-          className="w-40"
-          onClick={onStopRecording}
-          variant="destructive"
-        >
-          Parar gravacao
-        </Button>
+        <Button onClick={stopRecording}>Pausar gravação</Button>
       ) : (
-        <Button className="w-40" onClick={onStartRecording} variant="default">
-          Gravar audio
-        </Button>
+        <Button onClick={startRecording}>Gravar áudio</Button>
       )}
-
-      {isRecording ? <p>Gravando...</p> : <p>Pressione o botão para gravar</p>}
+      {isRecording ? <p>Gravando...</p> : <p>Pausado</p>}
     </div>
   )
 }
